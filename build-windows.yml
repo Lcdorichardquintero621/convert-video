@@ -1,0 +1,47 @@
+name: Build Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar PyInstaller
+        run: pip install pyinstaller
+
+      - name: Compilar .exe
+        run: pyinstaller --onefile --noconsole --name Convert --icon icon.ico --add-data "icon.ico;." --add-data "logo.png;." convertidor_video.py
+
+      - name: Descargar FFmpeg
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile ffmpeg.zip
+          Expand-Archive ffmpeg.zip -DestinationPath ff
+          $bin = Get-ChildItem -Path ff -Recurse -Filter ffmpeg.exe | Select-Object -First 1
+          Copy-Item $bin.FullName dist\ffmpeg.exe
+          Copy-Item (Join-Path $bin.DirectoryName "ffprobe.exe") dist\ffprobe.exe
+
+      - name: Crear instalador
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" convert.iss
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Convert-Instalador
+          path: installer/Convert-Setup.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Convert-Portable
+          path: dist/

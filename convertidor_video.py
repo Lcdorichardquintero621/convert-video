@@ -144,11 +144,42 @@ def armar_comando(entrada, salida, fmt, v, a):
     return cmd, modo
 
 
+# Paleta tomada del camaleón
+BG = "#E8F6D4"
+VERDE = "#1FA67A"
+VERDE_OSC = "#0F5C45"
+TURQUESA = "#19C3B1"
+NARANJA = "#FF8A1F"
+ROSA = "#E6399B"
+AMARILLO = "#FFD23F"
+MORADO = "#9B5DE5"
+RAYAS = [TURQUESA, AMARILLO, NARANJA, ROSA, MORADO, VERDE]
+
+
+class Boton(tk.Button):
+    def __init__(self, master, texto, comando, color, **kw):
+        super().__init__(master, text=texto, command=comando, bg=color, fg="white",
+                         activebackground=color, activeforeground="white", relief="flat",
+                         bd=0, cursor="hand2", font=("Segoe UI", 12, "bold"),
+                         padx=22, pady=8, **kw)
+        self.color = color
+        self.bind("<Enter>", lambda e: self.config(bg=self.aclarar(color)))
+        self.bind("<Leave>", lambda e: self.config(bg=self.color))
+
+    @staticmethod
+    def aclarar(hexcol):
+        r, g, b = (int(hexcol[i:i + 2], 16) for i in (1, 3, 5))
+        r, g, b = (min(255, int(c + (255 - c) * 0.18)) for c in (r, g, b))
+        return f"#{r:02x}{g:02x}{b:02x}"
+
+
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Convert")
-        self.geometry("620x620")
+        self.geometry("660x720")
+        self.minsize(600, 660)
+        self.configure(bg=BG)
         try:
             self.iconbitmap(recurso("icon.ico"))
         except Exception:
@@ -157,36 +188,76 @@ class App(tk.Tk):
         self.v = self.a = None
         self.dur = 0
 
-        cab = ttk.Frame(self)
-        cab.pack(pady=(12, 4))
+        # Cabecera
+        cab = tk.Frame(self, bg=VERDE)
+        cab.pack(fill="x")
         try:
             self.logo = tk.PhotoImage(file=recurso("logo.png"))
-            ttk.Label(cab, image=self.logo).pack(side="left", padx=(0, 10))
+            tk.Label(cab, image=self.logo, bg=VERDE).pack(side="left", padx=(18, 12), pady=12)
         except Exception:
             pass
-        ttk.Label(cab, text="Convert", font=("Segoe UI", 22, "bold")).pack(side="left")
-        ttk.Button(self, text="Elegir video...", command=self.elegir).pack(pady=10)
-        self.info = tk.Text(self, height=17, wrap="word", state="disabled")
-        self.info.pack(fill="both", padx=10)
+        bloque = tk.Frame(cab, bg=VERDE)
+        bloque.pack(side="left")
+        tk.Label(bloque, text="Convert", bg=VERDE, fg="white",
+                 font=("Segoe UI", 26, "bold")).pack(anchor="w")
+        tk.Label(bloque, text="Cambia el formato de tus videos sin perder calidad",
+                 bg=VERDE, fg="#E8FFF4", font=("Segoe UI", 10)).pack(anchor="w")
 
-        fila = ttk.Frame(self)
-        fila.pack(pady=10)
-        ttk.Label(fila, text="Convertir a:").pack(side="left")
-        self.fmt = ttk.Combobox(fila, values=list(COMPAT), state="readonly", width=8)
+        # Franja de colores
+        franja = tk.Frame(self, height=8, bg=BG)
+        franja.pack(fill="x")
+        for c in RAYAS:
+            tk.Frame(franja, bg=c, height=8).pack(side="left", fill="x", expand=True)
+
+        # Botón elegir
+        Boton(self, "Elegir video", self.elegir, NARANJA).pack(pady=(16, 10))
+
+        # Tarjeta de detalles
+        tarjeta = tk.Frame(self, bg="white", highlightthickness=3, highlightbackground=TURQUESA)
+        tarjeta.pack(fill="both", expand=True, padx=18)
+        self.info = tk.Text(tarjeta, wrap="word", state="disabled", bd=0, bg="white",
+                            font=("Segoe UI", 11), padx=14, pady=10, height=14)
+        self.info.pack(fill="both", expand=True)
+        self.info.tag_configure("etiqueta", foreground=ROSA, font=("Segoe UI", 11, "bold"))
+        self.info.tag_configure("titulo", foreground=VERDE, font=("Segoe UI", 12, "bold"))
+        self.info.tag_configure("valor", foreground="#243B2E")
+        self.poner("Elige un video para ver sus detalles.")
+
+        # Formato y convertir
+        fila = tk.Frame(self, bg=BG)
+        fila.pack(pady=14)
+        tk.Label(fila, text="Convertir a:", bg=BG, fg=VERDE_OSC,
+                 font=("Segoe UI", 12, "bold")).pack(side="left")
+        estilo = ttk.Style()
+        estilo.theme_use("clam")
+        estilo.configure("TCombobox", fieldbackground="white", background=AMARILLO, arrowsize=16)
+        estilo.configure("Colorido.Horizontal.TProgressbar", troughcolor="white",
+                         background=ROSA, bordercolor=TURQUESA, lightcolor=ROSA,
+                         darkcolor=ROSA, thickness=20)
+        self.fmt = ttk.Combobox(fila, values=list(COMPAT), state="readonly", width=7,
+                                font=("Segoe UI", 12))
         self.fmt.set("mp4")
-        self.fmt.pack(side="left", padx=8)
-        self.btn = ttk.Button(fila, text="Convertir", command=self.convertir)
+        self.fmt.pack(side="left", padx=10)
+        self.btn = Boton(fila, "Convertir", self.convertir, VERDE)
         self.btn.pack(side="left")
 
-        self.barra = ttk.Progressbar(self, maximum=100)
-        self.barra.pack(fill="x", padx=10)
-        self.estado = ttk.Label(self, text="")
-        self.estado.pack(pady=6)
+        self.barra = ttk.Progressbar(self, maximum=100, style="Colorido.Horizontal.TProgressbar")
+        self.barra.pack(fill="x", padx=18)
+        self.estado = tk.Label(self, text="", bg=BG, fg=VERDE_OSC, font=("Segoe UI", 10, "bold"))
+        self.estado.pack(pady=(8, 12))
 
     def poner(self, txt):
         self.info.config(state="normal")
         self.info.delete("1.0", "end")
-        self.info.insert("end", txt)
+        for linea in txt.split("\n"):
+            if ": " in linea and not linea.endswith(":"):
+                et, val = linea.split(": ", 1)
+                self.info.insert("end", et + ": ", "etiqueta")
+                self.info.insert("end", val + "\n", "valor")
+            elif linea.endswith(":"):
+                self.info.insert("end", linea + "\n", "titulo")
+            else:
+                self.info.insert("end", linea + "\n", "valor")
         self.info.config(state="disabled")
 
     def elegir(self):
